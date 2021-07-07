@@ -1,0 +1,530 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "<img src=\"files/model_1_outline.png\">"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "sequence generator shape (corrected) (b, n, w, h, c)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Changes: \n",
+    "### Run for 100 Epochs\n",
+    "### change 5 to 10 frames per sequence"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "import glob\n",
+    "import keras"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Load the TensorBoard notebook extension\n",
+    "%reload_ext tensorboard\n",
+    "import tensorflow as tf\n",
+    "import datetime"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# from patrice's blogpost\n",
+    "from keras_video import VideoFrameGenerator"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "['hand_ties', 'suture_throws', 'thread_cuts']\n"
+     ]
+    }
+   ],
+   "source": [
+    "classes = ['suture_throws', 'hand_ties', 'thread_cuts']\n",
+    "classes.sort()\n",
+    "print(classes)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# some global params\n",
+    "SIZE = (100, 100) # height and width of frame pxl by pxl\n",
+    "CHANNELS = 3 # RGB or whatever\n",
+    "NBFRAME = 10 # num frames in sequence \n",
+    "BS = 8 # Batch size"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# pattern to get videos and classes\n",
+    "glob_pattern='../data_v2_1_model_1_2/model_data/{classname}/*.avi'"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# for data augmentation\n",
+    "data_aug = keras.preprocessing.image.ImageDataGenerator(\n",
+    "    zoom_range=.1,\n",
+    "    horizontal_flip=True,\n",
+    "    rotation_range=8,\n",
+    "    width_shift_range=.2,\n",
+    "    height_shift_range=.2)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "class hand_ties, validation count: 129, train count: 264\n",
+      "class suture_throws, validation count: 129, train count: 264\n",
+      "class thread_cuts, validation count: 129, train count: 264\n",
+      "Total data: 3 classes for 792 files for train\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Create video frame generator\n",
+    "train = VideoFrameGenerator(\n",
+    "    classes=classes, \n",
+    "    glob_pattern=glob_pattern,\n",
+    "    nb_frames=NBFRAME,\n",
+    "    split_val=.33, \n",
+    "    shuffle=True,\n",
+    "    batch_size=BS,\n",
+    "    target_shape=SIZE,\n",
+    "    nb_channel=CHANNELS,\n",
+    "    use_frame_cache=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Total data: 3 classes for 387 files for validation\n"
+     ]
+    }
+   ],
+   "source": [
+    "# getting validation data\n",
+    "valid = train.get_validation_generator()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# import keras_video.utils\n",
+    "# keras_video.utils.show_sample(train)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## BUILD CONV NET"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.layers import Conv2D, BatchNormalization, \\\n",
+    "    MaxPool2D, GlobalMaxPool2D\n",
+    "def build_convnet(shape=(112, 112, 3)):\n",
+    "    # specify momentum\n",
+    "    momentum = .9\n",
+    "    # create the model from 9=(what is sequential: not clear, just a basic layer stacker class)\n",
+    "    model = keras.Sequential()\n",
+    "    # builds a 2D convnet, filter #, filter size ...\n",
+    "    model.add(Conv2D(64, (3,3), input_shape=shape,\n",
+    "        padding='same', activation='relu'))\n",
+    "    \n",
+    "    # same takes in previous layer, I guess\n",
+    "    model.add(Conv2D(64, (3,3), padding='same', activation='relu'))\n",
+    "    # adding batch normalization (forgot what batch normalization is used for)\n",
+    "    model.add(BatchNormalization(momentum=momentum))\n",
+    "    \n",
+    "    # max pool to this layer\n",
+    "    model.add(MaxPool2D())\n",
+    "    \n",
+    "    model.add(Conv2D(128, (3,3), padding='same', activation='relu'))\n",
+    "    model.add(Conv2D(128, (3,3), padding='same', activation='relu'))\n",
+    "    model.add(BatchNormalization(momentum=momentum))\n",
+    "    \n",
+    "    model.add(MaxPool2D())\n",
+    "    \n",
+    "    model.add(Conv2D(256, (3,3), padding='same', activation='relu'))\n",
+    "    model.add(Conv2D(256, (3,3), padding='same', activation='relu'))\n",
+    "    model.add(BatchNormalization(momentum=momentum))\n",
+    "    \n",
+    "    model.add(MaxPool2D())\n",
+    "    \n",
+    "    model.add(Conv2D(512, (3,3), padding='same', activation='relu'))\n",
+    "    model.add(Conv2D(512, (3,3), padding='same', activation='relu'))\n",
+    "    model.add(BatchNormalization(momentum=momentum))\n",
+    "    \n",
+    "    # flatten... (not sure why not flatten instead of GlobalMaxPool2D)\n",
+    "    model.add(GlobalMaxPool2D())\n",
+    "    return model"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    " 64 filters (3x3, same, relu) --> 64 filters (3x3, same, relu) --> BatchNorm with momentum --> maxpool --> 128 filters (3x3, same, relu) --> 128 filters (3x3, same, relu) --> BatchNorm, momentum -> 256 filters (3x3, same, relu) --> 256 filters (3x3, same, relu) --> BatchNorm, Momentum --> max pool --> 512 filters (3x3, same, relu) --> 512 filters (3x3, same, relu) --> Batch norm --> Flatten"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Build GRU"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.layers import TimeDistributed, GRU, Dense, Dropout\n",
+    "# Shape (5, 112, 112, 3) 5 - time sequence length 112x112 = height vs width 3 - num channels\n",
+    "def action_model(shape=(5, 112, 112, 3), nbout=3):\n",
+    "    # Create our convnet with (112, 112, 3) input shape\n",
+    "    convnet = build_convnet(shape[1:])\n",
+    "    \n",
+    "    # then create our final model\n",
+    "    model = keras.Sequential()\n",
+    "    # add the convnet with (5, 112, 112, 3) shape\n",
+    "    # KEY = allows you to add a time sequence to a layer one at a time\n",
+    "    model.add(TimeDistributed(convnet, input_shape=shape))\n",
+    "    # here, you can also use GRU or LSTM\n",
+    "    model.add(GRU(64))\n",
+    "    # and finally, we make a decision network\n",
+    "    model.add(Dense(1024, activation='relu'))\n",
+    "    model.add(Dropout(.5))\n",
+    "    model.add(Dense(512, activation='relu'))\n",
+    "    model.add(Dropout(.5))\n",
+    "    model.add(Dense(128, activation='relu'))\n",
+    "    model.add(Dropout(.5))\n",
+    "    model.add(Dense(64, activation='relu'))\n",
+    "    model.add(Dense(nbout, activation='softmax'))\n",
+    "    return model"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## this is where you tell the model how to train - loss function, weight update mechanism"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "INSHAPE=(NBFRAME,) + SIZE + (CHANNELS,) # (5, 112, 112, 3)\n",
+    "# action model - GRU set up for Time shifted CNN\n",
+    "model = action_model(INSHAPE, len(classes))\n",
+    "\n",
+    "# this is where you tell the model how to train - loss function, weight update mechanism\n",
+    "optimizer = keras.optimizers.Adam(0.001)\n",
+    "# optimizer  = keras.SGD with gradient clipping, learning rate\n",
+    "model.compile(\n",
+    "    optimizer,\n",
+    "    'categorical_crossentropy',\n",
+    "    metrics=['acc']\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## epochs, call backs"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "log_dir = \"logs/fit/\" + datetime.datetime.now().strftime(\"%Y%m%d-%H%M%S\")\n",
+    "tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Epoch 1/100\n",
+      "99/99 [==============================] - 911s 9s/step - loss: 1.1599 - acc: 0.3253 - val_loss: 1.1014 - val_acc: 0.3464\n",
+      "Epoch 2/100\n",
+      "99/99 [==============================] - 741s 7s/step - loss: 1.1281 - acc: 0.3027 - val_loss: 1.1020 - val_acc: 0.3229\n",
+      "Epoch 3/100\n",
+      "99/99 [==============================] - 752s 8s/step - loss: 1.1127 - acc: 0.3789 - val_loss: 1.0933 - val_acc: 0.3672\n",
+      "Epoch 4/100\n",
+      "99/99 [==============================] - 740s 7s/step - loss: 1.1219 - acc: 0.3132 - val_loss: 1.0929 - val_acc: 0.3333\n",
+      "Epoch 5/100\n",
+      "99/99 [==============================] - 732s 7s/step - loss: 1.0986 - acc: 0.3339 - val_loss: 1.0978 - val_acc: 0.3333\n",
+      "Epoch 6/100\n",
+      "99/99 [==============================] - 739s 7s/step - loss: 1.1138 - acc: 0.3330 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 7/100\n",
+      "99/99 [==============================] - 735s 7s/step - loss: 1.1055 - acc: 0.3180 - val_loss: 1.0912 - val_acc: 0.3776\n",
+      "Epoch 8/100\n",
+      "99/99 [==============================] - 728s 7s/step - loss: 1.0994 - acc: 0.3613 - val_loss: 1.0898 - val_acc: 0.3385\n",
+      "Epoch 9/100\n",
+      "99/99 [==============================] - 730s 7s/step - loss: 1.1054 - acc: 0.3309 - val_loss: 1.0956 - val_acc: 0.3359\n",
+      "Epoch 10/100\n",
+      "99/99 [==============================] - 738s 7s/step - loss: 1.1231 - acc: 0.3460 - val_loss: 1.0992 - val_acc: 0.3464\n",
+      "Epoch 11/100\n",
+      "99/99 [==============================] - 735s 7s/step - loss: 1.0943 - acc: 0.3408 - val_loss: 1.0834 - val_acc: 0.3828\n",
+      "Epoch 12/100\n",
+      "99/99 [==============================] - 739s 7s/step - loss: 1.0978 - acc: 0.3483 - val_loss: 1.1190 - val_acc: 0.3411\n",
+      "Epoch 13/100\n",
+      "99/99 [==============================] - 729s 7s/step - loss: 1.0844 - acc: 0.3780 - val_loss: 1.1000 - val_acc: 0.3307\n",
+      "Epoch 14/100\n",
+      "99/99 [==============================] - 727s 7s/step - loss: 1.1056 - acc: 0.3589 - val_loss: 1.0994 - val_acc: 0.3333\n",
+      "Epoch 15/100\n",
+      "99/99 [==============================] - 731s 7s/step - loss: 1.0994 - acc: 0.3355 - val_loss: 1.0987 - val_acc: 0.3333\n",
+      "Epoch 16/100\n",
+      "99/99 [==============================] - 738s 7s/step - loss: 1.1013 - acc: 0.3246 - val_loss: 1.0987 - val_acc: 0.3333\n",
+      "Epoch 17/100\n",
+      "99/99 [==============================] - 734s 7s/step - loss: 1.0988 - acc: 0.3027 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 18/100\n",
+      "99/99 [==============================] - 729s 7s/step - loss: 1.0981 - acc: 0.3350 - val_loss: 1.0987 - val_acc: 0.3333\n",
+      "Epoch 19/100\n",
+      "99/99 [==============================] - 740s 7s/step - loss: 1.1006 - acc: 0.2950 - val_loss: 1.0987 - val_acc: 0.3333\n",
+      "Epoch 20/100\n",
+      "99/99 [==============================] - 731s 7s/step - loss: 1.0969 - acc: 0.3412 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 21/100\n",
+      "99/99 [==============================] - 741s 7s/step - loss: 1.0996 - acc: 0.3246 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 22/100\n",
+      "99/99 [==============================] - 729s 7s/step - loss: 1.0971 - acc: 0.3278 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 23/100\n",
+      "99/99 [==============================] - 731s 7s/step - loss: 1.1003 - acc: 0.2886 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 24/100\n",
+      "99/99 [==============================] - 728s 7s/step - loss: 1.0985 - acc: 0.3165 - val_loss: 1.0987 - val_acc: 0.3307\n",
+      "Epoch 25/100\n",
+      "99/99 [==============================] - 726s 7s/step - loss: 1.0988 - acc: 0.3222 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 26/100\n",
+      "99/99 [==============================] - 726s 7s/step - loss: 1.0990 - acc: 0.3203 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 27/100\n",
+      "99/99 [==============================] - 725s 7s/step - loss: 1.0988 - acc: 0.3114 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 28/100\n",
+      "99/99 [==============================] - 727s 7s/step - loss: 1.0989 - acc: 0.2933 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 29/100\n",
+      "99/99 [==============================] - 721s 7s/step - loss: 1.0985 - acc: 0.3547 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 30/100\n",
+      "99/99 [==============================] - 721s 7s/step - loss: 1.0984 - acc: 0.3617 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 31/100\n",
+      "99/99 [==============================] - 729s 7s/step - loss: 1.0990 - acc: 0.3291 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 32/100\n",
+      "99/99 [==============================] - 729s 7s/step - loss: 1.0988 - acc: 0.3028 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 33/100\n",
+      "99/99 [==============================] - 725s 7s/step - loss: 1.0988 - acc: 0.3002 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 34/100\n",
+      "99/99 [==============================] - 729s 7s/step - loss: 1.0988 - acc: 0.3411 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 35/100\n",
+      "99/99 [==============================] - 722s 7s/step - loss: 1.0986 - acc: 0.3692 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 36/100\n",
+      "99/99 [==============================] - 734s 7s/step - loss: 1.0988 - acc: 0.3621 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 37/100\n",
+      "99/99 [==============================] - 726s 7s/step - loss: 1.0990 - acc: 0.3136 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 38/100\n",
+      "99/99 [==============================] - 721s 7s/step - loss: 1.0987 - acc: 0.3637 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 39/100\n",
+      "99/99 [==============================] - 727s 7s/step - loss: 1.0987 - acc: 0.3388 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 40/100\n",
+      "99/99 [==============================] - 722s 7s/step - loss: 1.0986 - acc: 0.3454 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 41/100\n",
+      "99/99 [==============================] - 726s 7s/step - loss: 1.0992 - acc: 0.2802 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 42/100\n",
+      "99/99 [==============================] - 723s 7s/step - loss: 1.0988 - acc: 0.3310 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 43/100\n",
+      "99/99 [==============================] - 730s 7s/step - loss: 1.0986 - acc: 0.3215 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 44/100\n",
+      "99/99 [==============================] - 729s 7s/step - loss: 1.0988 - acc: 0.3301 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 45/100\n",
+      "99/99 [==============================] - 723s 7s/step - loss: 1.0990 - acc: 0.3393 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 46/100\n",
+      "99/99 [==============================] - 725s 7s/step - loss: 1.0987 - acc: 0.3539 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 47/100\n",
+      "99/99 [==============================] - 719s 7s/step - loss: 1.0990 - acc: 0.3264 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 48/100\n",
+      "99/99 [==============================] - 723s 7s/step - loss: 1.0992 - acc: 0.3042 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 49/100\n",
+      "99/99 [==============================] - 723s 7s/step - loss: 1.0990 - acc: 0.2929 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 50/100\n",
+      "99/99 [==============================] - 727s 7s/step - loss: 1.0988 - acc: 0.3340 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 51/100\n",
+      "99/99 [==============================] - 728s 7s/step - loss: 1.0985 - acc: 0.3487 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 52/100\n",
+      "99/99 [==============================] - 724s 7s/step - loss: 1.0987 - acc: 0.3231 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 53/100\n",
+      "99/99 [==============================] - 721s 7s/step - loss: 1.0987 - acc: 0.3462 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 54/100\n",
+      "99/99 [==============================] - 735s 7s/step - loss: 1.0986 - acc: 0.3587 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 55/100\n",
+      "99/99 [==============================] - 746s 8s/step - loss: 1.0988 - acc: 0.3345 - val_loss: 1.0986 - val_acc: 0.3359\n",
+      "Epoch 56/100\n",
+      "99/99 [==============================] - 791s 8s/step - loss: 1.0993 - acc: 0.3073 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 57/100\n",
+      "99/99 [==============================] - 856s 9s/step - loss: 1.0987 - acc: 0.3472 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 58/100\n",
+      "99/99 [==============================] - 873s 9s/step - loss: 1.0987 - acc: 0.3412 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 59/100\n",
+      "99/99 [==============================] - 1178s 12s/step - loss: 1.0986 - acc: 0.3344 - val_loss: 1.0986 - val_acc: 0.3333\n",
+      "Epoch 60/100\n",
+      "99/99 [==============================] - 1150s 12s/step - loss: 1.0991 - acc: 0.3049 - val_loss: 1.0986 - val_acc: 0.3307\n",
+      "Epoch 61/100\n",
+      "56/99 [===============>..............] - ETA: 1:08:41 - loss: 1.0989 - acc: 0.2785"
+     ]
+    }
+   ],
+   "source": [
+    "EPOCHS=100\n",
+    "# create a \"chkp\" directory before to run that\n",
+    "# because ModelCheckpoint will write models inside\n",
+    "callbacks = [\n",
+    "    keras.callbacks.ReduceLROnPlateau(verbose=1),\n",
+    "    keras.callbacks.ModelCheckpoint(\n",
+    "        'model1_1_chkp/weights.{epoch:02d}-{val_loss:.2f}.hdf5',\n",
+    "        verbose=1),\n",
+    "]\n",
+    "\n",
+    "log_dir = \"logs/fit/\" + datetime.datetime.now().strftime(\"%Y%m%d-%H%M%S\")\n",
+    "tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)\n",
+    "model.fit(\n",
+    "    train,\n",
+    "    validation_data=valid,\n",
+    "    verbose=1,\n",
+    "    epochs=EPOCHS,\n",
+    "    callbacks=[tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)]\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "## Next steps\n",
+    "### Try different rescale factor\n",
+    "### Try bigger sequence size\n",
+    "### Change Architecture\n",
+    "### Two class\n",
+    "### increase learning rate\n",
+    "### gradient clipping"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
