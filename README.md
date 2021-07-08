@@ -10,4 +10,4 @@ The cholec80 experiments folder contains all scripts written to get a current mo
 A third experiment is in progress where a pytorch implementation from: https://github.com/YuemingJin/MTRCNet-CL/blob/master/train_singlenet_phase.py is being tried out
 
 
-The code is not completely reproducible since 1. the data is missing! 2. the virtual environment is not included here. 
+The experiments are not completely reproducible since 1. the data is missing! 2. the virtual environment is not included here. 
