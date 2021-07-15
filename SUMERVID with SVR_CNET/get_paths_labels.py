@@ -15,9 +15,6 @@ classes = { 'hand_ties':1, 'suture_throws': 2, 'thread_cuts':3 }
 base_path = r'C:\Users\calvinap\SUMER-VID\data_v5.1'
 
 
-
-
-
 hand_ties_info = []
 suture_throws_info = []
 thread_cuts_info = []
@@ -35,6 +32,10 @@ for path in glob.glob(thread_cuts_path):
     thread_cuts_info.append(classes['thread_cuts'])
 
 def get_all_info(pids, base_path):
+    """
+    pids: set, set of all video ids
+    base_path: str
+    """
     hand_ties_path = os.path.join(base_path, classes_list[0])
     thread_cuts_path = os.path.join(base_path, classes_list[1])
     suture_throws_path = os.path.join(base_path, classes_list[2])
@@ -42,9 +43,12 @@ def get_all_info(pids, base_path):
     print('hand_tie_path: {}'.format(hand_ties_path))
     print('thread_cuts_path: {}'.format(thread_cuts_path))
     print('suture_throws_path: {}'.format(suture_throws_path))
+
     data_set = []
     for pid in pids:
-       data_set.append(get_image_info(hand_ties_path, pid))
+        data_set.append(get_image_info(hand_ties_path, pid))
+        data_set.append(get_image_info(thread_cuts_path, pid))
+        data_set.append(suture_throws_path, pid)
 
 
 
