@@ -280,12 +280,13 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
     train_useful_start_idx = get_useful_start_idx(sequence_length, train_num_each)
     val_useful_start_idx = get_useful_start_idx(sequence_length, val_num_each)
 
-    num_train_we_use = len(
+    #num_train_we_use = len(
+    #     train_useful_start_idx
+    # ) // num_gpu * num_gpu
+    #num_val_we_use = len(val_useful_start_idx) // num_gpu * num_gpu
 
-    ) // num_gpu * num_gpu
-    num_val_we_use = len(val_useful_start_idx) // num_gpu * num_gpu
-    # num_train_we_use = 8000
-    # num_val_we_use = 800
+    num_train_we_use = 8000
+    num_val_we_use = 800
 
     train_we_use_start_idx = train_useful_start_idx[0:num_train_we_use]
     val_we_use_start_idx = val_useful_start_idx[0:num_val_we_use]
@@ -406,7 +407,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-            train_loss += loss.data[0]
+            train_loss += loss.item()
             train_corrects += torch.sum(preds == labels.data)
         train_elapsed_time = time.time() - train_start_time
         train_accuracy = train_corrects / num_train_all
@@ -447,7 +448,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             _, preds = torch.max(outputs.data, 1)
 
             loss = criterion(outputs, labels)
-            val_loss += loss.data[0]
+            val_loss += loss.item()
             val_corrects += torch.sum(preds == labels.data)
         val_elapsed_time = time.time() - val_start_time
         val_accuracy = val_corrects / num_val_we_use

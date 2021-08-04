@@ -19,10 +19,10 @@ import random
 import numbers
 
 parser = argparse.ArgumentParser(description='lstm training')
-parser.add_argument('-g', '--gpu', default=[2], nargs='+', type=int, help='index of gpu to use, default 2')
-parser.add_argument('-s', '--seq', default=4, type=int, help='sequence length, default 4')
-parser.add_argument('-t', '--train', default=100, type=int, help='train batch size, default 100')
-parser.add_argument('-v', '--val', default=8, type=int, help='valid batch size, default 8')
+parser.add_argument('-g', '--gpu', default=[0], nargs='+', type=int, help='index of gpu to use, default 0')
+parser.add_argument('-s', '--seq', default=3, type=int, help='sequence length, default 4')
+parser.add_argument('-t', '--train', default=99, type=int, help='train batch size, default 100')
+parser.add_argument('-v', '--val', default=6, type=int, help='valid batch size, default 8')
 parser.add_argument('-o', '--opt', default=1, type=int, help='0 for sgd 1 for adam, default 1')
 parser.add_argument('-m', '--multi', default=1, type=int, help='0 for single opt, 1 for multi opt, default 1')
 parser.add_argument('-e', '--epo', default=25, type=int, help='epochs to train and val, default 25')
@@ -60,9 +60,17 @@ sgd_adjust_lr = args.sgdadjust
 sgd_step = args.sgdstep
 sgd_gamma = args.sgdgamma
 
+import sys
+
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu_usg
 num_gpu = torch.cuda.device_count()
 use_gpu = torch.cuda.is_available()
+
+print("use gpu: {}".format(use_gpu))
+print("cuda version: {}".format(torch.version.cuda))
+print("torch version: {}".format(torch.__version__))
+print("python version:{}".format(sys.version))
+
 
 print('number of gpu   : {:6d}'.format(num_gpu))
 print('sequence length : {:6d}'.format(sequence_length))
@@ -138,7 +146,7 @@ class CholecDataset(Dataset):
     def __init__(self, file_paths, file_labels, transform=None,
                  loader=pil_loader):
         self.file_paths = file_paths
-        self.file_labels_1 = file_labels[:, range(7)]
+        self.file_labels_1 = file_labels[:, -1]
         self.file_labels_2 = file_labels[:, -1]
         self.transform = transform
         self.loader = loader
@@ -172,7 +180,7 @@ class resnet_lstm(torch.nn.Module):
         self.share.add_module("layer4", resnet.layer4)
         self.share.add_module("avgpool", resnet.avgpool)
         self.lstm = nn.LSTM(2048, 512, batch_first=True)
-        self.fc = nn.Linear(512, 7)
+        self.fc = nn.Linear(512, 3)  # 3 -> number of classes
 
         init.xavier_normal(self.lstm.all_weights[0][0])
         init.xavier_normal(self.lstm.all_weights[0][1])
@@ -285,23 +293,31 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
     # ) // num_gpu * num_gpu
     #num_val_we_use = len(val_useful_start_idx) // num_gpu * num_gpu
 
-    num_train_we_use = 8000
-    num_val_we_use = 800
+    num_train_we_use = 5247
+    num_val_we_use = 612
 
     train_we_use_start_idx = train_useful_start_idx[0:num_train_we_use]
     val_we_use_start_idx = val_useful_start_idx[0:num_val_we_use]
 
-    #    np.random.seed(0)
+    # np.random.seed(0)
     # np.random.shuffle(train_we_use_start_idx)
     train_idx = []
     for i in range(num_train_we_use):
         for j in range(sequence_length):
-            train_idx.append(train_we_use_start_idx[i] + j)
+            try:
+                train_idx.append(train_we_use_start_idx[i] + j)
+            except Exception as e:
+                print(i, len(train_we_use_start_idx))
+                raise e
 
     val_idx = []
     for i in range(num_val_we_use):
         for j in range(sequence_length):
-            val_idx.append(val_we_use_start_idx[i] + j)
+            try:
+                val_idx.append(val_we_use_start_idx[i] + j)
+            except Exception as e:
+                print(i, len(val_we_use_start_idx))
+                raise e
 
     num_train_all = len(train_idx)
     num_val_all = len(val_idx)
@@ -317,6 +333,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
     print('num of all valid use: {:6d}'.format(num_val_all))
 
     train_loader = DataLoader(
+
         train_dataset,
         batch_size=train_batch_size,
         sampler=train_idx,
@@ -523,7 +540,8 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
 
 
 def main():
-    train_dataset, train_num_each, val_dataset, val_num_each, _, _ = get_data('train40_val8_test32_paths_labels.pkl')
+    train_dataset, train_num_each, val_dataset, val_num_each, _, _ = get_data(
+        r'C:\Users\calvinap\SUMER-VID\train714_val110_test275_paths_labels.pkl')
     print('supposed train dataset size: {}'.format(len(train_dataset)))
     print('supposed train num each size: {}'.format(train_num_each))
     print('supposed val dataset size: {}'.format(len(val_dataset)))
