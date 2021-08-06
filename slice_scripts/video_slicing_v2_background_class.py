@@ -5,20 +5,25 @@ class folder
 Note: the reason for using moviepy's VideoFileClip over ffmpeg was ffmpeg was not accurately cutting the videos
 at the desired points.
 """
+"""
+Asusmptions: 
+1. Each video is 6 seconds for background class
+2. Each particpant gets NUM_VIDEOS_PER_PARTICIPANT background videos. These get picked randomly from all possible windowed/sliced videos
+"""
 import os
 #from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
-#from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
 import json
 import random
 
 # Start with
-# DIR_PATH = r'C:\Users\Carla Pugh\PycharmProjects\VideoSlicing\Annotations'
-# FILENAME = r'SIM R01 Annotation Table_local_copy_downloaded_feb_19_2021.xlsx'
-# FILEPATH = os.path.join(DIR_PATH, FILENAME)
 # VIDPATH = r'C:\Users\Carla Pugh\Box\Pugh Lab Shared Drive\4. Data Base\ACS-October2019\ACS 2019 Aligned Videos'
 # OUTPUTPATH = r'C:\Users\Carla Pugh\PycharmProjects\VideoSlicing\new_slices_avi'
-# PIDS_PATH = r'C:\Users\Carla Pugh\PycharmProjects\VideoSlicing\new_slices\pids_seen_so_far.txt'
-JSON_PATH = '/home/calvinap/SUMER-VID/annotations_json/serialized_pugh_annotations.json'
+OUTPUTPATH = '/mnt/c/temp_videos'
+PIDS_PATH = '/home/calvinperumalla/pids_seen_so_far.txt'
+VIDPATH = '/mnt/c/temp_videos'
+#JSON_PATH = '/home/calvinap/SUMER-VID/annotations_json/serialized_pugh_annotations.json'
+JSON_PATH = '/mnt/c/Users/Carla Pugh/SUMER-VID/annotations_json/serialized_pugh_annotations.json'
 NUM_VIDEOS_PER_PARTICIPANT = 10 # number of background videos per participant. This limit needs to be set since total number of 2s  background videos
 # can get very high 
 
@@ -64,6 +69,10 @@ def _get_time_window_markers(start_times, end_times, window_size, pid):
             new_start_times.append(window_start)
             if window_num == num_windows - 1:
                 # if last window then just use the end time of the annotation
+                if end_seconds - window_start < 3:
+                    # if the remaining portion of the duration is less than 3 seconds, discard the time point
+                    _ = new_start_times.pop(-1)
+                    continue
                 new_end_times.append(end_seconds)
             else:
                 # else calculate the end time using the start time and window size
@@ -71,30 +80,17 @@ def _get_time_window_markers(start_times, end_times, window_size, pid):
             window_start += window_size
             
     out = random.sample(list(zip(new_start_times, new_end_times)), k=NUM_VIDEOS_PER_PARTICIPANT)
-    print(out)
     return out
-
-def get_sec(time_str):
-    """Get Seconds from time. COPIED FROM STACK OVERFLOW"""
-    if time_str == 'nc':
-        return -1
-    m, s = time_str.split(':')
-    return int(m) * 60 + int(s)
 
 def get_video_path(path):
     participant_vids_dict = {}
     for entry in os.listdir(path):
-        if not entry.endswith('.mkv') or 'Camera1' not in entry:  # only looking at Camera 1 for now
+        if not entry.endswith('.mkv') or 'Camera2' not in entry:  # only looking at Camera 2 for now
             continue
         # getting the pid and casting to lower and assigning the path to the pid
         participant_vids_dict[entry[:4].lower()] = os.path.join(path, entry)
+    print(participant_vids_dict)
     return participant_vids_dict
-
-
-def read_excel_sheet(path):
-    print('reading excel sheet...')
-    wrkbk = xlrd.open_workbook(path)
-    return wrkbk
 
 
 def _run_slice_save(timepts, pid, video_dict):
@@ -119,15 +115,15 @@ def _run_slice_save(timepts, pid, video_dict):
             if start == '' or stop == '':
                 continue
             # cut and save
-            start_seconds = get_sec(start)
-            stop_seconds = get_sec(stop) + 1  # adding a second since the cutter cuts only prior to end time in annotation. we want to include the end second in the annotation
+            start_seconds = start
+            stop_seconds = stop + 1  # adding a second since the cutter cuts only prior to end time in annotation. we want to include the end second in the annotation
             if stop_seconds == -1 or start_seconds == -1:
                 print('incompatible start or stop time; start: {}, stop: {}'.format(start_seconds, stop_seconds))
                 continue
 
             print('saving...')
             new = video.subclip(start_seconds, stop_seconds)
-            camera = input_path.split('.')[2]
+            camera = input_path.split('.')[1]
             file_name = '{}_{}_{}_{}.mp4'.format(pid, action_type, camera, subclip_cnt)
             output_path = os.path.join(relevant_path, file_name)
 
@@ -181,6 +177,7 @@ def extract_time_points_from_json(path):
     out = {}
     black_list = ['p120 - i']
     for participant_id, tps_list in timepoints.items():
+        participant_id = participant_id.lower()
         start_list = []
         stop_list = []
         if participant_id in black_list:
@@ -195,16 +192,16 @@ def extract_time_points_from_json(path):
                 continue
             start_list.append(tp[0])
             stop_list.append(tp[1])
-        finalized_start_times, finalized_stop_times = zip(*_get_time_window_markers(start_list, stop_list, 2, participant_id))
+        finalized_start_times, finalized_stop_times = zip(*_get_time_window_markers(start_list, stop_list, 6, participant_id))
         out[participant_id] = _prep_timepts(finalized_start_times, finalized_stop_times, 'background')
 
     return out
 
 def main():
-    # video_dict = get_video_path(VIDPATH)
+    video_dict = get_video_path(VIDPATH)
     timepoints = extract_time_points_from_json(JSON_PATH)
     # go through an entire video and cut
-    #slice_and_save(timepoints, video_dict)
+    slice_and_save(timepoints, video_dict)
     print('all done :)')
 
 
