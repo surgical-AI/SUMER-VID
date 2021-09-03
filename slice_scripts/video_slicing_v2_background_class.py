@@ -19,11 +19,11 @@ import random
 # Start with
 # VIDPATH = r'C:\Users\Carla Pugh\Box\Pugh Lab Shared Drive\4. Data Base\ACS-October2019\ACS 2019 Aligned Videos'
 # OUTPUTPATH = r'C:\Users\Carla Pugh\PycharmProjects\VideoSlicing\new_slices_avi'
-OUTPUTPATH = '/mnt/c/temp_videos'
-PIDS_PATH = '/home/calvinperumalla/pids_seen_so_far.txt'
-VIDPATH = '/mnt/c/temp_videos'
+OUTPUTPATH = '/mnt/c/Users/calvinap/SUMER-VID/data_v5'
+PIDS_PATH = '/home/calvinap/SUMER-VID/pids_seen_so_far.txt'
+VIDPATH = '/mnt/c/Unboxed_ACS_videos/ACS_2019_Aligned_Videos'
 #JSON_PATH = '/home/calvinap/SUMER-VID/annotations_json/serialized_pugh_annotations.json'
-JSON_PATH = '/mnt/c/Users/Carla Pugh/SUMER-VID/annotations_json/serialized_pugh_annotations.json'
+JSON_PATH = '/mnt/c/Users/calvinap/SUMER-VID/annotations_json/serialized_pugh_annotations.json'
 NUM_VIDEOS_PER_PARTICIPANT = 10 # number of background videos per participant. This limit needs to be set since total number of 2s  background videos
 # can get very high 
 
@@ -89,7 +89,6 @@ def get_video_path(path):
             continue
         # getting the pid and casting to lower and assigning the path to the pid
         participant_vids_dict[entry[:4].lower()] = os.path.join(path, entry)
-    print(participant_vids_dict)
     return participant_vids_dict
 
 
