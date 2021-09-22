@@ -112,7 +112,7 @@ class resnet_lstm(torch.nn.Module):
         self.rn50.add_module('layer4', resnet.layer4)
         self.rn50.add_module('avgpool', resnet.avgpool)
         self.lstm = torch.nn.LSTM(2048, 512) # input shape of 2048 and 512 stacked cells
-        self.fc = torch.nn.Linear(512, 3) # 512 input 3 output
+        self.fc = torch.nn.Linear(512, 4) # 512 input 3 output CHANGED OUTPUT TO $
         init.xavier_normal_(self.lstm.all_weights[0][0]) # xavier = https://pytorch.org/docs/stable/nn.init.html
         init.xavier_normal_(self.lstm.all_weights[0][1])
         init.xavier_uniform(self.fc.weight)

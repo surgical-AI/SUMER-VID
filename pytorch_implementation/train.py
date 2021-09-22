@@ -32,7 +32,7 @@ from torchvision import models, transforms
 from PIL import Image, ImageOps
 
 
-data_read_path = '/home/calvinap/SUMER-VID/pytorch_implementation/data/train714_val110_test275_paths_labels.pkl'
+data_read_path = '/home/calvinap/SUMER-VID/pytorch_implementation/data/data_819_410_410.pkl'
 model_save_path = '/home/calvinap/SUMER-VID/pytorch_implementation/'
 
 def pil_loader(path):
@@ -168,7 +168,7 @@ def train(model, data, sequence_length):
 
     # for loop for training per epoch
     #for epoch in range(hyperparams['epochs']):
-    for epoch in range(1):
+    for epoch in range(1): # change to hyperparams['epoch'] while actually training
         idx_for_uniform_sequences_train = _get_sequences(num_images_per_train_video, sequence_length, num_train_we_use)
         # train_size = len(idx_for_uniform_sequences_train) if train_size == -1 else train_size
         train_loader = DataLoader(
