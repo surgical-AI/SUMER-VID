@@ -58,7 +58,7 @@ def save_data_pkl(all_info, train_split, val_split, path):
     print('size of train set: {}, size of test set: {}, size of val set: {}'
           .format(train_idx, len(all_info)-val_idx, val_idx - train_idx))
     print(train_val_test_paths_labels)
-    file_name = 'data_{}_{}_{}.pkl.format(train_idx, val_idx - train_idx, len(all_info) - val_idx)'
+    file_name = 'data_{}_{}_{}.pkl'.format(train_idx, val_idx - train_idx, len(all_info) - val_idx)
     outpath = os.path.join(path, file_name)
     with open(outpath, 'wb') as f:
         pickle.dump(train_val_test_paths_labels, f)

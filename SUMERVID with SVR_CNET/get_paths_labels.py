@@ -9,16 +9,13 @@ from utils import save_data_pkl
 
 all_info_all = []
 
-classes_list = ['hand_ties', 'suture_throws', 'thread_cuts']
-classes = { 'hand_ties':1, 'suture_throws': 2, 'thread_cuts':3 }
+classes_list = ['hand_ties', 'suture_throws', 'thread_cuts', 'background']
+classes = { 'hand_ties':1, 'suture_throws': 2, 'thread_cuts':3, 'background': 4}
 
 base_path = '/home/calvinap/SUMER-VID/pytorch_implementation/data_v5.2_fake/'
 save_path = '/home/calvinap/SUMER-VID/pytorch_implementation/'
 
-
-hand_ties_path = os.path.join(base_path, classes_list[0])
-thread_cuts_path = os.path.join(base_path, classes_list[1])
-suture_throws_path = os.path.join(base_path, classes_list[2])
+cls_paths = [os.path.join(base_path, i) for i in classes_list]
 
 def get_all_image_packets_for_pid(class_path, pid, label=1):
     # get the right path
@@ -31,24 +28,24 @@ def get_all_image_packets_for_pid(class_path, pid, label=1):
         out.append([image_path, label])
 
     # return list of image packets
-    return out
+    if len(out) != 0:
+        return out
+
 
 
 def get_all_info(pids, base_path):
     """
     pids: set, set of all video ids
     base_path: str
-    """
-
-    print('hand_tie_path: {}'.format(hand_ties_path))
-    print('thread_cuts_path: {}'.format(thread_cuts_path))
-    print('suture_throws_path: {}'.format(suture_throws_path))
+    """   
 
     data_set = []
     for pid in pids:
-        data_set.append(get_all_image_packets_for_pid(hand_ties_path, pid, label=1))
-        data_set.append(get_all_image_packets_for_pid(thread_cuts_path, pid, label=2))
-        data_set.append(get_all_image_packets_for_pid(suture_throws_path, pid, label=3))
+        all = []
+        for i in range(len(classes_list)):
+            info = get_all_image_packets_for_pid(cls_paths[i], pid, label=i) 
+            if info is not None:
+                data_set.append(info)
     
     return data_set
 
@@ -58,9 +55,8 @@ def get_pids(path):
     """
     pid_set = set()
     # get participant video ids from all class folders
-    pid_set.update(set(os.listdir(hand_ties_path)))
-    pid_set.update(set(os.listdir(suture_throws_path)))
-    pid_set.update(set(os.listdir(thread_cuts_path)))
+    for pth in cls_paths:
+        pid_set.update(set(os.listdir(pth)))
     return pid_set
 
 
