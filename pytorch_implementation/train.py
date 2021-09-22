@@ -193,8 +193,12 @@ def train(model, data, sequence_length):
             print('starting minibatch {}'.format(cnt))
             inputs, labels = data
             # converting them to Variable objects
-            inputs = Variable(inputs) #Variable(inputs.cuda())
-            labels = Variable(labels) #Variable(labels.cuda())
+            # inputs = Variable(inputs) #Variable(inputs.cuda())
+            # labels = Variable(labels) #Variable(labels.cuda())
+
+            inputs = Variable(inputs.cuda())
+            labels = Variable(labels.cuda())
+            
             optimizer.zero_grad() # TODO why?
             outputs = model.forward(inputs) # forward pass
             _, preds = torch.max(outputs.data, 1) # outputs must be bunch of probabilities per input
@@ -217,8 +221,8 @@ def train(model, data, sequence_length):
         val_start_time = time.time()
         for data in val_loader:
             inputs, labels = data # inputs is a tensor
-            inputs = Variable(inputs)
-            labels = Variable(labels) # TODO what does cuda do?
+            inputs = Variable(inputs.cuda())
+            labels = Variable(labels.cuda()) # TODO what does cuda do?
 
             outputs = model.forward(inputs)
 
@@ -259,6 +263,9 @@ def save_model_logs(model, logs):
 def main():
     data = read_data(data_read_path)
     model = resnet_lstm(sequence_length=hyperparams['sequence_length'])
+    if torch.cuda.is_available():
+        print('GPU recognized!')
+        model = model.cuda()
     trained_model = train(model, data, hyperparams['sequence_length'])
     # save_model_logs(trained_model, logs)
 
