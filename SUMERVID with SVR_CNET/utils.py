@@ -1,4 +1,7 @@
 import pickle
+import os
+
+
 def save_data_pkl(all_info, train_split, val_split, path):
     train_idx = int(len(all_info) * train_split)
     val_idx = int(len(all_info) * (val_split + train_split))
@@ -14,8 +17,9 @@ def save_data_pkl(all_info, train_split, val_split, path):
     val_num_each = []
     test_num_each = []
 
+    # all_info = list of image packets. each image packet is a list of path, label
     for i in range(train_idx):
-        train_num_each.append(len(all_info[i]))
+        train_num_each.append(len(all_info[i])) 
         for j in range(len(all_info[i])):
             train_file_paths.append(all_info[i][j][0])
             train_labels.append(all_info[i][j][1:])
@@ -53,7 +57,8 @@ def save_data_pkl(all_info, train_split, val_split, path):
 
     print('size of train set: {}, size of test set: {}, size of val set: {}'
           .format(train_idx, len(all_info)-val_idx, val_idx - train_idx))
-
-    with open(path.format(train_idx, val_idx - train_idx, len(all_info) - val_idx),
-              'wb') as f:
+    print(train_val_test_paths_labels)
+    file_name = 'data_{}_{}_{}.pkl.format(train_idx, val_idx - train_idx, len(all_info) - val_idx)'
+    outpath = os.path.join(path, file_name)
+    with open(outpath, 'wb') as f:
         pickle.dump(train_val_test_paths_labels, f)
