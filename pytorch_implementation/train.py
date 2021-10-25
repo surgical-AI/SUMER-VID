@@ -30,9 +30,10 @@ from torch.autograd import Variable
 # from torchvision import models, transforms
 from torchvision import models, transforms
 from PIL import Image, ImageOps
+from torch.utils.tensorboard import SummaryWriter
 
 
-data_read_path = '/home/calvinap/SUMER-VID/pytorch_implementation/data/data_819_410_410.pkl'
+data_read_path = '/home/calvinap/SUMER-VID/pytorch_implementation/data/train_data_819_410_410.pkl'
 model_save_path = '/home/calvinap/SUMER-VID/pytorch_implementation/'
 
 def pil_loader(path):
@@ -49,8 +50,8 @@ def read_data(path):
     # data = [train_list, val_list, test_list, train_label_list, val_label_list, test_label_list, train_num, val_num, test_num]
 
     return {
-        'train_data_and_labels': ACSDataset(data[0], data[3], loader=pil_loader, test=True),
-        'val_data_and_labels': ACSDataset(data[1], data[4], loader=pil_loader, test=True),
+        'train_data_and_labels': ACSDataset(data[0], data[3], loader=pil_loader),
+        'val_data_and_labels': ACSDataset(data[1], data[4], loader=pil_loader),
         'train_num_each':data[6],
         'val_num_each':data[7]
     }
@@ -61,13 +62,15 @@ def get_model():
     '''
     pass
 
-def train(model, data, sequence_length):
+def train(model, data, sequence_length, epochs):
     """
     train_set: training dataset 
     val_set: validation data set
     train_num_each: list of ints. each int at ith index represents the number of images in ith video in the training set.
     val_num_each: list of ints. each int at ith index represents the number of images in ith video in the val set.
     """
+    
+    print('training for {} epochs'.format(epochs))
     train_data = data['train_data_and_labels']
     val_data =data['val_data_and_labels']
     num_images_per_train_video = data['train_num_each'] 
@@ -124,7 +127,7 @@ def train(model, data, sequence_length):
         return out
         
 
-    
+    print('getting sequences')
     idx_for_uniform_sequences_val = _get_sequences(num_images_per_val_video, sequence_length, num_val_we_use)
     train_size = -1
     
@@ -166,9 +169,12 @@ def train(model, data, sequence_length):
     best_val_accuracy = 0.0
     correspond_train_acc = 0.0
 
+
+    writer = SummaryWriter('runs/background')
     # for loop for training per epoch
     #for epoch in range(hyperparams['epochs']):
-    for epoch in range(1): # change to hyperparams['epoch'] while actually training
+    for epoch in range(epochs): # change to hyperparams['epoch'] while actually training
+        print('..............Epoch {}..............'.format(epoch + 1))
         idx_for_uniform_sequences_train = _get_sequences(num_images_per_train_video, sequence_length, num_train_we_use)
         # train_size = len(idx_for_uniform_sequences_train) if train_size == -1 else train_size
         train_loader = DataLoader(
@@ -182,15 +188,13 @@ def train(model, data, sequence_length):
         model.train() # TODO what does this do?
         train_loss = 0.0
         train_corrects = 0
+        train_incorrects = 0
         train_start_time = time.time()
+        print('training minibatches')
         cnt = 0
         for data in train_loader:
-            # for testing puproses lets end after 5
-            if cnt == 2:
-                print('discontinuing for testing purposes')
-                break 
             cnt += 1
-            print('starting minibatch {}'.format(cnt))
+            print('training minibatch: {}'.format(cnt))
             inputs, labels = data
             # converting them to Variable objects
             # inputs = Variable(inputs) #Variable(inputs.cuda())
@@ -207,18 +211,25 @@ def train(model, data, sequence_length):
             optimizer.step() # ? updates weights
             train_loss += loss.item() # updates the loss for this batch
             train_corrects += torch.sum(preds == labels.data) # gives number of corrects
-            print('ending minibatch {}'.format(cnt))
-        
+            train_incorrects += torch.sum(preds != labels.data) # gives number of corrects
+                     
+        num_train_sequences = len(idx_for_uniform_sequences_train)
         train_elapsed_time = time.time() - train_start_time
-        train_accuracy = train_corrects / num_train_we_use
-        train_average_loss = train_loss / num_train_we_use
+        train_accuracy = train_corrects / (train_corrects + train_incorrects)
+        train_average_loss = train_loss / (train_corrects + train_incorrects)
 
         # TODO: THE FOLLOWING IS REPEATED CODE ===> WRITE A FUNCTION FOR THIS
         # loss at the end of an epoch
+        writer.add_scalar('train_accuracy', train_accuracy, epoch)
+        writer.add_scalar('train_loss', train_average_loss, epoch)
+
         model.eval() # TODO what is this?
         val_loss = 0.0
         val_corrects = 0
+        val_incorrects = 0
         val_start_time = time.time()
+
+        print('validation data passed through model')
         for data in val_loader:
             inputs, labels = data # inputs is a tensor
             inputs = Variable(inputs.cuda())
@@ -232,11 +243,14 @@ def train(model, data, sequence_length):
             loss = loss_criterion(outputs, labels)
             val_loss += loss.item()
             val_corrects += torch.sum(preds==labels.data)
+            val_incorrects += torch.sum(preds!=labels.data)
 
         val_elapsed_time = time.time() - val_start_time
-        val_accuracy = val_corrects / num_val_we_use
-        val_average_loss = val_loss / num_val_we_use
-
+        val_accuracy = val_corrects / (val_incorrects + val_corrects)
+        val_average_loss = val_loss / (val_incorrects + val_corrects)
+        writer.add_scalar('val_accuracy', val_accuracy, epoch)
+        writer.add_scalar('val_loss', val_average_loss, epoch)
+        
         if val_accuracy > best_val_accuracy:
             best_val_accuracy = val_accuracy
             correspond_train_acc = train_accuracy
@@ -245,6 +259,12 @@ def train(model, data, sequence_length):
             if train_accuracy > correspond_train_acc:
                 correspond_train_acc = train_accuracy
                 best_model_wts = copy.deepcopy(model.state_dict())
+        
+        print('epoch number: {}'.format(epoch))
+        print('train accuracy: {}'.format(train_accuracy))
+        print('val accuracy: {}'.format(val_accuracy))
+        print('train loss: {}'.format(val_average_loss))
+        print('val loss: {}'.format(val_average_loss))
 
         # TODO print a bunch of stuff
         # record_np[epoch, 0] = train_accuracy
@@ -261,18 +281,18 @@ def save_model_logs(model, logs):
     pass
 
 def main():
+    print('reading data')
     data = read_data(data_read_path)
+
+    print('getting model')
     model = resnet_lstm(sequence_length=hyperparams['sequence_length'])
+    
     if torch.cuda.is_available():
         print('GPU recognized!')
         model = model.cuda()
-    trained_model = train(model, data, hyperparams['sequence_length'])
+    print('training model')
+    trained_model = train(model, data, hyperparams['sequence_length'], hyperparams['epochs'])
     # save_model_logs(trained_model, logs)
 
 if __name__ == '__main__':
     main()
-
-
-# fix the DataSet object creation
-# Set up pytorch on linux
-# Debug
